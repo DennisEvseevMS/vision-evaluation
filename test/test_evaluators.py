@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from vision_evaluation.evaluators import AveragePrecisionEvaluator, TopKAccuracyEvaluator, ThresholdAccuracyEvaluator, MeanAveragePrecisionEvaluatorForSingleIOU, EceLossEvaluator, \
-    PrecisionEvaluator, RecallEvaluator, _targets_to_mat
+    PrecisionEvaluator, RecallEvaluator, PrecisionRecallCurvesEvaluator
 from vision_evaluation.prediction_filters import TopKPredictionFilter, ThresholdPredictionFilter
 
 
@@ -56,6 +56,11 @@ class TestClassificationEvaluator(unittest.TestCase):
         thresh05_evaluator = ThresholdAccuracyEvaluator(0.5)
         thresh05_evaluator.add_predictions(self.PREDICTIONS, self.TARGETS)
         self.assertEqual(thresh05_evaluator.get_report()["accuracy_thres=0.5"], 0.35)
+
+    def test_prcurve_evaluator(self):
+        evaluator = PrecisionRecallCurvesEvaluator()
+        evaluator.add_predictions(self.PREDICTIONS, self.TARGETS)
+        self.assertEqual(len(evaluator.get_report()["precision_recall_curve_0"]), 3)
 
 
 class TestMultilabelClassificationEvaluator(unittest.TestCase):

@@ -3,7 +3,7 @@ import statistics
 import sklearn.metrics as sm
 import numpy as np
 from abc import ABC, abstractmethod
-from .prediction_filters import PredictionFilter, TopKPredictionFilter, ThresholdPredictionFilter
+from .prediction_filters import TopKPredictionFilter, ThresholdPredictionFilter
 from functools import reduce
 
 
@@ -234,6 +234,51 @@ class RecallEvaluator(MemorizingEverythingEvaluator):
 
     def _calculate(self, targets, predictions, average):
         return sm.recall_score(targets, predictions, average=average)
+
+
+class PrecisionRecallCurveEvaluatorPerLabel(MemorizingEverythingEvaluator):
+
+    def __init__(self, prediction_filter, label_idx):
+        super().__init__(prediction_filter)
+        self._label_idx = label_idx
+
+    def _get_id(self):
+        return f'precision_recall_curve_{self._label_idx}'
+
+    def _calculate(self, targets, predictions, average):
+        targets_lbl = targets[:, self._label_idx]
+        probs_lbl = [pred[self._label_idx] for pred in predictions]
+        precision, recall, thresholds = sm.precision_recall_curve(targets_lbl, probs_lbl)
+        return (thresholds, precision, recall)
+
+
+class PrecisionRecallCurvesEvaluator(Evaluator):
+
+    def __init__(self):
+        self._report = {}
+        super().__init__()
+
+    def _get_id(self):
+        return 'precision_recall_curves'
+
+    def add_predictions(self, predictions, targets):
+        """ Add a batch of predictions for evaluation.
+        Args:
+            predictions: the model output array. Shape (N, num_class)
+            targets: the ground truths. Shape (N, num_class) for multi-label (or (N,) for multi-class)
+        """
+
+        assert len(predictions) == len(targets)
+
+        target_mat = _targets_to_mat(targets, predictions.shape[1])
+
+        for lbl in range(target_mat.shape[1]):
+            evaluator = PrecisionRecallCurveEvaluatorPerLabel(None, lbl)
+            evaluator.add_predictions(predictions, targets)
+            self._report.update(evaluator.get_report())
+
+    def get_report(self, **kwargs):
+        return self._report
 
 
 class AveragePrecisionEvaluator(MemorizingEverythingEvaluator):
